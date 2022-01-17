@@ -1,0 +1,52 @@
+name: ci-pipeline
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+jobs:
+  build_and_test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+      - name: Set up Node
+        uses: actions/setup-node@v2
+        with:
+          node-version: '17'
+      - name: Install dependencies
+        run: npm install
+      - name: Build app
+        run: npm run build
+      - name: Run linting
+        run: npm run lint
+      - name: Run tests
+        run: npm run test
+      - name: Publish artifact
+        uses: actions/upload-artifact@v2
+        if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main'}}
+        with:
+          name: production-build
+          path: |
+            build
+  deploy_to_production:
+    runs-on: ubuntu-latest
+    needs: build_and_test
+    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main'}}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+      - name: Install dependencies
+        run: npm install
+      - name: Download artifact
+        uses: actions/download-artifact@v2
+        with:
+          name: production-build
+          path: build
+      - name: Deploy
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./build
